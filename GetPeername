@@ -1,0 +1,85 @@
+--------vi server_peername.c--------
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<string.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<netinet/in.h>
+int main( int argc, char * argv[] )
+{
+        int s, s2, t, len;
+        struct sockaddr_in local,rem;
+        char str[100];
+        s = socket(AF_INET,SOCK_STREAM,0);
+        if(s==-1)
+        { perror("socket"); exit(1); }
+        bzero((char*)&local,sizeof(local));
+        local.sin_family=AF_INET;
+        local.sin_port=htons(atoi(argv[1]));
+        local.sin_addr.s_addr=inet_addr("172.20.0.7");
+        if(bind(s,(struct sockaddr*)&local,sizeof(local))==-1)
+        { perror("bind"); exit(1); }
+        if(listen(s,5)==-1)
+        { perror("listen"); exit(1); }
+        for(;;)
+        {
+                int done,n;
+                printf("waiting for a connection....\n");
+                t=sizeof(rem);
+                s2=accept(s,(struct sockaddr*)&rem,&t);
+                if(s2==-1)
+                { perror("accept"); exit(1); }
+        }
+        close(s2);
+        return 0;
+}
+
+execution: cc server_peername.c
+	    ./a.out 5746
+
+---------vi client_peername.c------------
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<string.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<netinet/in.h>
+int main(int argc,char *argv[])
+{
+        int s;
+        struct sockaddr_in server;
+        struct sockaddr_storage addr;
+        socklen_t len;
+        int port;
+        char ipstr[INET_ADDRSTRLEN];
+        s=socket(AF_INET,SOCK_STREAM,0);
+        if(s==-1)
+        {
+                perror("socket");
+                exit(1);
+        }
+        server.sin_family=AF_INET;
+        inet_aton("172.20.0.7",&server.sin_addr);
+        server.sin_port=htons(atoi(argv[1]));
+        if((connect(s,(struct sockaddr *)&server,sizeof(server)))<0)
+        {
+                perror("connect");
+                exit(0);
+        }
+        len=sizeof(addr);
+        getpeername(s,(struct sockaddr *)&addr,&len);
+        if (addr.ss_family == AF_INET) {
+        struct sockaddr_in *s = (struct sockaddr_in *)&addr;
+        port = ntohs(s->sin_port);
+        inet_ntop(AF_INET, &s->sin_addr, ipstr, sizeof ipstr);}
+        printf("Peer IP address: %s\n", ipstr);
+        printf("Peer port      : %d\n", port);
+        return 0;
+}
+
+execution: cc client_peername.c -o client_peername
+	   ./client_peername 5746
