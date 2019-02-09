@@ -1,0 +1,161 @@
+Server
+
+#include<stdio.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<string.h>
+#include<sys/types.h>
+#include<sys/socket.h>
+#include<netinet/in.h>
+int main(int argc,char * argv[])
+{
+        int s,s2,t,len,cp;
+        struct sockaddr_in local,rem;
+        char str[100];
+        s=socket(AF_INET,SOCK_STREAM,0);
+        if(s==-1)
+        {
+                perror("socket");
+                exit(1);
+        }
+        bzero((char *)&local,sizeof(local));
+        local.sin_family=AF_INET;
+        local.sin_port=htons(atoi(argv[1]));
+        local.sin_addr.s_addr=htonl(INADDR_ANY);
+        if(bind(s,(struct sockaddr *)&local,sizeof(local))==-1)
+        {
+                perror("bind");
+                exit(1);
+        }
+        if(listen(s,5)==-1)
+        {
+                perror("listen");
+                exit(1);
+        }
+        for(;;)
+        {
+                int done,n;
+                printf("waiting for a connection...");
+                t=sizeof(rem);
+                s2=accept(s,(struct sockaddr *)&rem,&t);
+                if(s2==-1)
+                {
+                        perror("accept");
+                        exit(1);
+                }
+                printf("connected");
+                if((cp=fork())<0)
+                {
+                        perror("fork error");
+                }
+                else if(cp==0)
+                {
+                        close(s);
+                        done=0;
+                        do
+                        {
+                                n=recv(s2,str,100,0);
+                                str[n]='\0';
+                                printf("%s\n",str);
+                                printf("length of received string: %d\n",n);
+				if(n<=0)
+                                {
+                                        if(n<0)
+                                                perror("recv");
+                                        done=1;
+                                }
+ 				int l=n;
+                                char rev_str[100];
+                                int m;
+                                for(m=0;m<n;m++){
+                                        rev_str[m]=str[n-m-1];
+                                }
+                                rev_str[n]='\0';
+                                printf("reversed string: %s\n",rev_str);
+                                if(!done)
+                                if(send(s2,rev_str,n,0)<0)
+                                {
+                                        perror("send");
+                                        done=1;
+                                }
+                        }while(!done);
+                        exit(0);
+                }
+                close(s2);
+        }
+        return 0;
+}
+
+
+
+execution
+[it16-82@localhost np]$ vi tcp_stringReversal.c
+[it16-82@localhost np]$ cc tcp_stringReversal.c -o rev
+[it16-82@localhost np]$ ./rev 3207
+waiting for a connection...connected
+hello
+
+length of received string: 6
+reversed string:
+olleh
+server
+
+length of received string: 7
+reversed string:
+revres
+client here!!
+
+length of received string: 14
+reversed string:
+!!ereh tneilc
+
+
+Client
+
+#include <stdio.h>
+#include <sys/socket.h>
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <string.h>
+#define PORT 3600
+int main(int argc, char const *argv[])
+{
+    struct sockaddr_in address;
+    int sock = 0, valread;
+    struct sockaddr_in serv_addr;
+    char *hello = "Hello from client";
+    char buffer[1024] = {0};
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        printf("\n Socket creation error \n");
+        return -1;
+    }
+    memset(&serv_addr, '0', sizeof(serv_addr));
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(PORT);
+    serv_addr.sin_addr.s_addr=INADDR_ANY;
+    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+    {
+        printf("\nConnection Failed \n");
+        return -1;
+    }
+    send(sock , hello , strlen(hello) , 0 );
+    printf("Hello message sent\n");
+    valread = read( sock , buffer, 1024);
+    printf("%s\n",buffer );
+    return 0;
+}
+
+execution
+[it16-82@localhost np]$ ./cli 172.20.0.7 3207
+trying to connect to.......172.20.0.7
+connection sucessful
+->hello
+echo->
+olleh
+->server
+echo->
+revres
+->client here!!
+echo->
+!!ereh tneilc
